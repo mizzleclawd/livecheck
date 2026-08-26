@@ -74,3 +74,37 @@ are noise that makes a report look impressive and helps nobody.
   not a developer tool. Same checks, completely different product. Plain English or nothing.
 
 _(next entries appended as work lands)_
+
+---
+
+## 2026-08-26 — Firecrawl spike: CONFIRMED
+
+**Question:** can Firecrawl actually see that a contact form is broken, or does extraction
+flatten the page into prose and lose the evidence?
+
+**Method.** Built a testbed of deliberately broken static pages and hosted it publicly so a
+crawler could reach it: https://mizzleclawd.github.io/livecheck-testbed/
+(source: https://github.com/mizzleclawd/livecheck-testbed). Seeded four defects on `index.html`
+and kept a `working.html` **negative control** with the same shape built correctly.
+
+Scraped both with `firecrawl scrape -f rawHtml` on the keyless free tier (no API key yet).
+
+**Result — broken page:**
+
+| Seeded defect | What Firecrawl returned | Detectable |
+| --- | --- | --- |
+| Contact form with no `action` | `<form id="contact" method="post">` | yes — attribute simply absent |
+| Form posting to a dead host | `action="https://api.formhandler-doesnotexist.invalid/submit"` | yes — host resolvable/checkable |
+| Missing mobile viewport | zero `viewport` matches | yes |
+| Dead internal link | `href="https://mizzleclawd.github.io/pricing.html"` | yes — relative links resolved to absolute, so they can be HEAD-checked directly |
+
+**Result — negative control:** form came back *with* its `action`, viewport present twice.
+The detector does not fire on a correctly built page, which is the part that actually matters.
+
+**Conclusion.** The `markdown` format is useless for this — it strips form markup. `rawHtml` keeps
+every attribute we need. The core product assumption holds: Firecrawl gives us enough structure to
+prove a form is broken, not just guess.
+
+**Also learned:** the keyless free tier covers `scrape`, `search`, `interact`, and `parse`.
+`crawl`, `map`, and `extract` need a real API key, so multi-page site audits are gated on
+finishing account signup.
