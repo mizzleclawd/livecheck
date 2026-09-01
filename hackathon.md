@@ -1,110 +1,92 @@
-# Livecheck — Convex All Gas Hackathon
+# Livecheck
 
-**Your AI built the site. We get it actually live.**
+**Is your website actually working?** Put in the address, get back what a
+customer runs into, in plain English.
 
-Live URL: _(convex.site — pending)_
-Demo video: _(pending, <3 min)_
-Repo: _(public GitHub — pending)_
-Started: 2026-08-25
-
----
+Convex All Gas Hackathon entry. Built by an agent; the human owner writes no
+application code.
 
 ## The problem
 
-Someone with no technical background builds a website with AI. The code is clean, the copy
-is decent, the layout looks professional. Then they try to actually launch it.
+People are shipping websites they cannot evaluate. A site builder or an AI
+produces something that *looks* finished, it goes live, and nobody finds out
+the contact form silently discards every message until a month of enquiries has
+already been lost. The owner is not an engineer. They cannot read a console and
+they should not have to.
 
-The contact form submits into nothing. The mobile view collapses. The domain won't connect
-because DNS "reads like a foreign language." The SSL certificate fails and the browser throws
-a scary warning at every visitor.
+## Status
 
-The site sits 80% done while the owner googles *"how to point a domain at my website."*
-**The last mile kills the launch.**
+**2026-09-01: scanning works end to end and is verified against a control.**
 
-## Who this is for
+Shipped and measured:
 
-**A business owner, not a developer.** A barber, a contractor, a bookkeeper, a personal
-trainer. Someone who built a site to get customers and is now stuck on infrastructure they
-were never supposed to have to learn.
+- Convex schema (`scans`, `findings`) with the scan as a **scheduled function**,
+  not a request handler. `startScan` writes the row and schedules the work, so
+  the client gets an id immediately and subscribes to the live feed.
+- Firecrawl scrape on `rawHtml` inside a Convex action, with the API key held in
+  deployment environment variables.
+- Seven detectors: form with no action, form posting to a dead endpoint, missing
+  viewport, placeholder title, missing meta description, broken image, broken
+  link.
+- Findings written **in batches as they are produced**, so the reactive query
+  fills the report in while the scan is still running.
+- Findings ranked by what costs money first: broken, risky, polish.
+- Next.js frontend. `next build` passes; the page serves and renders.
 
-Every output is plain English. No dashboards full of Lighthouse scores. No jargon. You paste
-your URL, we tell you what's broken in words you understand, and we fix what we can fix.
+**Measured on the testbed at
+[mizzleclawd.github.io/livecheck-testbed](https://mizzleclawd.github.io/livecheck-testbed/):**
 
-## What it does
-
-1. **Paste your site URL.**
-2. **Watch the scan run live.** Every page crawled in real time — you see it working.
-3. **Get the plain-English verdict.** "Your contact form goes nowhere. Nobody who fills it out
-   is reaching you." Not "form action attribute missing."
-4. **We fix what we can.** Missing meta tags, alt text, and — the big one — **we give you a
-   working inbox** so your contact form actually delivers.
-5. **You get a Livecheck certificate.** A public, shareable page proving the site works:
-   what was tested, what passed, when. Portable proof for a client, a marketplace, or a buyer.
-
-## Stack — and what each piece actually does
-
-| Piece | Real work it does |
-|---|---|
-| **Convex** | The whole backend. Scan jobs as scheduled functions, live scan progress via real-time queries, mutations for fix status, file storage for reports, static hosting for the frontend. |
-| **Firecrawl** | **The engine.** Crawls every page of the site — what actually renders, which forms have no destination, missing meta/OG tags, mobile viewport, broken links. This is not a garnish; without the crawl there is no product. |
-| **AgentMail** | **The fix, not just the finding.** The #1 failure on an AI-built site is a contact form submitting into the void. AgentMail provisions the site a real inbox, so the form starts delivering. We hand back a working address, not a bug report. |
-| **OpenAI** | Translates technical failures into language a non-technical owner understands, generates the missing meta tags and alt text, and writes the certificate summary. |
-
-## Why me
-
-I'm a security architect — CISSP, ISSAP, CCSP, CISM — and SSL, DNS, headers and posture
-checks are my actual craft, not a checklist I googled. I've built and shipped a
-scan-report-certify product before, so I know which checks matter to a real owner and which
-are noise that makes a report look impressive and helps nobody.
-
----
-
-## Build log
-
-### 2026-08-25 — Day 0
-- Hackathon starts. Project started from zero today; no prior code carried in.
-- Idea selected and pressure-tested against the judging criteria. Rejected an earlier concept
-  (government-contract opportunity radar) because its data sources — SAM.gov and BidNet — are
-  both authentication-gated. Verified that directly: SAM.gov's entity search returns **zero
-  results** unauthenticated, confirmed with a control search for a company that unquestionably
-  exists. Firecrawl would have hit the same wall. Killed it before sinking a week.
-- Chose Livecheck because Firecrawl's role is load-bearing on public pages with no auth wall,
-  which makes the riskiest dependency the *safest* one.
-- **Positioning decision, made deliberately:** this is an everyday app for a business owner,
-  not a developer tool. Same checks, completely different product. Plain English or nothing.
-
-_(next entries appended as work lands)_
-
----
-
-## 2026-08-26 — Firecrawl spike: CONFIRMED
-
-**Question:** can Firecrawl actually see that a contact form is broken, or does extraction
-flatten the page into prose and lose the evidence?
-
-**Method.** Built a testbed of deliberately broken static pages and hosted it publicly so a
-crawler could reach it: https://mizzleclawd.github.io/livecheck-testbed/
-(source: https://github.com/mizzleclawd/livecheck-testbed). Seeded four defects on `index.html`
-and kept a `working.html` **negative control** with the same shape built correctly.
-
-Scraped both with `firecrawl scrape -f rawHtml` on the keyless free tier (no API key yet).
-
-**Result — broken page:**
-
-| Seeded defect | What Firecrawl returned | Detectable |
+| Page | Findings | Result |
 | --- | --- | --- |
-| Contact form with no `action` | `<form id="contact" method="post">` | yes — attribute simply absent |
-| Form posting to a dead host | `action="https://api.formhandler-doesnotexist.invalid/submit"` | yes — host resolvable/checkable |
-| Missing mobile viewport | zero `viewport` matches | yes |
-| Dead internal link | `href="https://mizzleclawd.github.io/pricing.html"` | yes — relative links resolved to absolute, so they can be HEAD-checked directly |
+| `index.html` (deliberately broken) | 6 | form with no action, dead newsletter endpoint, missing viewport, missing description, 404 image, 404 link |
+| `working.html` (negative control) | 1 | missing meta description, which is a true positive |
 
-**Result — negative control:** form came back *with* its `action`, viewport present twice.
-The detector does not fire on a correctly built page, which is the part that actually matters.
+Not shipped yet, and marked as such deliberately:
 
-**Conclusion.** The `markdown` format is useless for this — it strips form markup. `rawHtml` keeps
-every attribute we need. The core product assumption holds: Firecrawl gives us enough structure to
-prove a form is broken, not just guess.
+- Public deployment. This runs against a local Convex backend; cloud deployment
+  is pending account linkage.
+- The portable public certificate. That is the separation from a generic
+  site-checker and it is the next build.
+- Fix suggestions with one-click application.
+- AgentMail inbound.
 
-**Also learned:** the keyless free tier covers `scrape`, `search`, `interact`, and `parse`.
-`crawl`, `map`, and `extract` need a real API key, so multi-page site audits are gated on
-finishing account signup.
+## What the negative control caught
+
+The first version probed form endpoints with HEAD and treated any `4xx` as
+dead. Run against the control page, it reported that a **working** Formspree
+form was broken.
+
+That is the most damaging mistake this product can make. A form handler that
+only accepts POST answers HEAD or GET with `400`, `403`, `405` or `422` while
+being perfectly alive. Telling a shop owner their working contact form is dead
+is worse than telling them nothing.
+
+Form endpoints are now only reported dead on an unreachable host, a timeout, a
+definitive `404`/`410`, or a `5xx`. Images and links are fetched by real
+browsers with GET, so for those any `4xx` really is broken. After the fix the
+control page dropped from 2 findings to 1, and the broken page still returned
+all 6.
+
+**A checker without a known-good control is decoration.** The control is what
+found the bug, not the broken page.
+
+## Why `rawHtml` and not `markdown`
+
+Firecrawl's `markdown` format strips form markup and meta tags. Those are
+exactly what every check here depends on. `rawHtml` preserves the form `action`
+attribute or its absence, resolves relative links to absolute, and exposes a
+missing viewport tag. This was established with a spike before any application
+code was written.
+
+## Sponsor tools, doing actual work
+
+- **Convex** — database, reactive queries, scheduled functions, actions,
+  deployment environment variables. The live-filling report is the reactive
+  query, not polling.
+- **Firecrawl** — every scan is a real scrape. Not decoration in a README.
+
+## Honesty note
+
+This log is written from what runs. Everything above marked "not shipped yet"
+has no code behind it at the time of writing. Items move to shipped only after
+they are verified, and the verification is stated.
