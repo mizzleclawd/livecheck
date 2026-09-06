@@ -17,8 +17,6 @@ const FIRECRAWL_ENDPOINT = "https://api.firecrawl.dev/v2/scrape";
 const MAX_ASSET_CHECKS = 12;
 const ASSET_TIMEOUT_MS = 8000;
 
-type ScanId = string;
-
 /**
  * Scrape the page, run the static detectors, then verify the URLs the page
  * points at. Findings are written in batches as they are produced so the UI
@@ -106,7 +104,15 @@ async function scrape(url: string): Promise<string> {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ url, formats: ["rawHtml"], onlyMainContent: false }),
+    // Diagnostics must describe the page as it is now. Firecrawl otherwise
+    // returns a cached scrape for up to two days, which can report a defect
+    // after the site owner has fixed it.
+    body: JSON.stringify({
+      url,
+      formats: ["rawHtml"],
+      onlyMainContent: false,
+      maxAge: 0,
+    }),
   });
 
   if (!response.ok) {
